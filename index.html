@@ -1,21 +1,347 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Rồng gặp xương rồng — Cute demo</title>
+<style>
+  :root{
+    --ground:#6b4f2a;
+    --sky:#b5e0ff;
+    --card:#fffef2;
+  }
+  html,body{height:100%;margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial}
+  body{background:linear-gradient(#cfefff, var(--sky));display:flex;align-items:center;justify-content:center;padding:20px}
+  .stage{
+    width:min(1000px,96vw);
+    height:360px;
+    background: linear-gradient(#e8fbff 0%, #dff6ff 40%, #9be0ff 100%);
+    border-radius:12px;
+    box-shadow:0 10px 30px rgba(10,30,60,0.12);
+    position:relative;
+    overflow:hidden;
+    border: 6px solid rgba(255,255,255,0.6);
+  }
+
+  /* ground */
+  .ground{
+    position:absolute;left:0;right:0;bottom:0;height:70px;background:linear-gradient(var(--ground), #563a20);
+    display:flex;align-items:flex-end;padding:10px;box-sizing:border-box;
+  }
+  .ground .line{height:6px;background:rgba(0,0,0,0.08);width:100%;border-radius:4px;position:relative;top:-8px}
+
+  /* dragon */
+  .dragon{
+    position:absolute;
+    left:80px;
+    bottom:70px;
+    width:90px;height:90px;
+    display:flex;align-items:center;justify-content:center;
+    transform-origin:center bottom;
+    transition: transform 120ms linear;
+    z-index:5;
+    pointer-events:none;
+    font-size:64px;
+    text-shadow:0 6px 10px rgba(0,0,0,0.2);
+    user-select:none;
+  }
+  .dragon.jumping{ animation: tilt 300ms ease-in-out; }
+  @keyframes tilt{ 0%{ transform: translateY(0) rotate(0deg) } 50%{ transform: translateY(-110px) rotate(-12deg) } 100%{ transform: translateY(0) rotate(0deg)} }
+
+  /* cactus */
+  .cactus{
+    position:absolute;
+    bottom:70px;
+    width:48px;height:64px;
+    font-size:48px;
+    display:flex;align-items:flex-end;justify-content:center;
+    z-index:4;
+    transform-origin:center bottom;
+    pointer-events:none;
+  }
+
+  /* UI */
+  .ui{
+    position:absolute;left:14px;top:12px;color:#0b3b5e;font-weight:600;
+    display:flex;gap:12px;align-items:center;background:rgba(255,255,255,0.7);padding:6px 10px;border-radius:10px;
+    box-shadow:0 4px 8px rgba(10,30,60,0.06);
+  }
+  .btn{background:#0b84ff;color:#fff;padding:6px 10px;border-radius:8px;border:0;cursor:pointer;font-weight:700}
+  .hint{font-size:13px;color:#083a5b;opacity:0.9}
+
+  /* footer card */
+  .card{
+    position:absolute;right:12px;top:12px;background:var(--card);padding:10px;border-radius:10px;color:#2b3b47;box-shadow:0 6px 14px rgba(0,0,0,0.06);
+    font-size:13px;
+  }
+  .score{font-weight:800;font-size:18px}
+  /* small fireworks */
+  .spark{
+    position:absolute;width:8px;height:8px;border-radius:50%;background:gold;opacity:0.95;pointer-events:none;
+    transform: translate(-50%,-50%) scale(1);
+    transition: transform 420ms ease-out, opacity 420ms linear;
+    z-index:9;
+  }
+
+  /* responsive */
+  @media (max-width:520px){
+    .dragon{left:52px;width:72px;height:72px;font-size:48px}
+    .ground{height:56px}
+  }
+</style>
+</head>
+<body>
+<div class="stage" id="stage" aria-label="Rồng chạy">
+  <div class="ui">
+    <div class="hint">Nhấn <b>Start</b> hoặc <b>space</b> để chơi</div>
+  </div>
+  <div class="card">
+    Score: <span class="score" id="score">0</span>
+  </div>
+
+  <div id="dragon" class="dragon" aria-hidden="true">🐉</div>
+  <div class="ground"><div class="line"></div></div>
+</div>
+
 <script>
-setInterval(() => {
-  let heart = document.createElement("div");
-  heart.innerHTML = "💖";
-  heart.style.position = "fixed";
-  heart.style.left = Math.random() * 100 + "vw";
-  heart.style.top = "-20px";
-  heart.style.fontSize = "24px";
-  heart.style.animation = "fall 3s linear";
-  document.body.appendChild(heart);
+/*
+  Simple runner-like demo:
+  - Cacti (🌵) spawn at right and move left.
+  - Dragon stands at left and will auto-jump when cactus is close (auto reaction),
+    but also you can press Space / Click stage to manual jump.
+  - Cute sparks + sound effect on successful jump over cactus.
+*/
 
-  setTimeout(() => heart.remove(), 3000);
-}, 300);
+// Config
+const config = {
+  spawnIntervalMin: 900,
+  spawnIntervalMax: 1800,
+  cactusSpeedPxPerSec: 260, // base speed
+  gravity: 2200, // px/s^2
+  jumpVelocity: 700, // px/s initial
+  groundY: 70, // px from bottom (ground height)
+};
 
-const style = document.createElement("style");
-style.innerHTML = `
-@keyframes fall {
-  to { transform: translateY(100vh); opacity: 0; }
-}`;
-document.head.appendChild(style);
+const stage = document.getElementById('stage');
+const dragonEl = document.getElementById('dragon');
+const scoreEl = document.getElementById('score');
+let stageRect = stage.getBoundingClientRect();
+let dragon = {
+  x: 80,
+  y: 0, // vertical offset from ground (0 = on ground)
+  vy: 0,
+  width: 90,
+  height: 90,
+  jumping: false
+};
+
+let cacti = [];
+let lastSpawn = 0;
+let nextSpawn = rand(config.spawnIntervalMin, config.spawnIntervalMax);
+let lastTime = null;
+let running = false;
+let score = 0;
+let autoReact = true; // dragon auto jump when obstacle near
+
+// audio (small beep)
+let ctx = null;
+function beep(freq=880, length=0.06, vol=0.05){
+  try {
+    if(!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.value = freq;
+    g.gain.value = vol;
+    o.connect(g); g.connect(ctx.destination);
+    o.start();
+    o.stop(ctx.currentTime + length);
+  } catch(e){}
+}
+
+function rand(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
+
+function spawnCactus(){
+  const el = document.createElement('div');
+  el.className = 'cactus';
+  el.innerText = '🌵';
+  stage.appendChild(el);
+  const w = 48;
+  const x = stageRect.width + 10;
+  const c = { el, x, w, passed:false };
+  c.setPos = () => {
+    el.style.left = c.x + 'px';
+  };
+  c.y = 0;
+  c.setPos();
+  c.setBottom = () => { el.style.bottom = config.groundY + 'px'; }
+  c.setBottom();
+  cacti.push(c);
+}
+
+function jump(){
+  if(dragon.y > 8) return; // already in air
+  dragon.vy = -config.jumpVelocity;
+  dragon.jumping = true;
+  dragonEl.classList.add('jumping');
+  beep(1200, 0.05, 0.06);
+  setTimeout(()=>dragonEl.classList.remove('jumping'), 350);
+}
+
+function spawnSparks(x,y){
+  for(let i=0;i<8;i++){
+    const s = document.createElement('div');
+    s.className = 'spark';
+    stage.appendChild(s);
+    s.style.left = x + (Math.random()*40-20) + 'px';
+    s.style.top = y + (Math.random()*40-20) + 'px';
+    const dx = (Math.random()-0.5)*120;
+    const dy = (Math.random()-0.9)*160 - 60;
+    requestAnimationFrame(()=>{
+      s.style.transform = `translate(${dx}px, ${dy}px) scale(${1.2 + Math.random()})`;
+      s.style.opacity = '0';
+    });
+    setTimeout(()=>s.remove(), 600);
+  }
+}
+
+function update(t){
+  if(!lastTime) lastTime = t;
+  const dt = (t - lastTime)/1000;
+  lastTime = t;
+
+  // spawn logic
+  lastSpawn += dt*1000;
+  if(lastSpawn >= nextSpawn){
+    spawnCactus();
+    lastSpawn = 0;
+    nextSpawn = rand(config.spawnIntervalMin, config.spawnIntervalMax);
+  }
+
+  // update dragon physics
+  dragon.vy += config.gravity * dt;
+  dragon.y += dragon.vy * dt;
+  if(dragon.y > 0){
+    dragon.y = 0;
+    dragon.vy = 0;
+    dragon.jumping = false;
+  }
+  dragonEl.style.transform = `translateY(${-dragon.y}px)`;
+
+  // update cacti positions
+  const speed = config.cactusSpeedPxPerSec;
+  for(let i=cacti.length-1;i>=0;i--){
+    const c = cacti[i];
+    c.x -= speed * dt;
+    if(!c.el) continue;
+    c.setPos();
+    // check passed
+    if(!c.passed && c.x + c.w < dragon.x){
+      c.passed = true;
+      score++;
+      scoreEl.innerText = score;
+      spawnSparks(dragon.x + 40, stageRect.height - config.groundY - 40);
+      beep(1600, 0.04, 0.05);
+    }
+
+    // collision detection (simple AABB)
+    const dragonBottom = stageRect.height - config.groundY - dragon.y;
+    const dragonTop = dragonBottom - dragon.height;
+    // cactus bbox:
+    const cactusLeft = c.x;
+    const cactusRight = c.x + c.w;
+    const cactusTop = stageRect.height - config.groundY - 64; // approx cactus height 64px
+    if(cactusLeft < dragon.x + 60 && cactusRight > dragon.x + 10){
+      // horizontally overlapping
+      if(dragonBottom > cactusTop + 20){ // dragon low (on ground)
+        // collision would happen unless we jump
+        if(!dragon.jumping && autoReact){
+          // auto jump just before collision
+          jump();
+        }
+      }
+    }
+
+    // remove off-screen
+    if(c.x < -80){
+      c.el.remove();
+      cacti.splice(i,1);
+    }
+  }
+
+  requestAnimationFrame(update);
+}
+
+// start / reset
+function startGame(){
+  // clear old cacti & reset
+  cacti.forEach(c => c.el && c.el.remove());
+  cacti = [];
+  lastSpawn = 0;
+  nextSpawn = rand(config.spawnIntervalMin, config.spawnIntervalMax);
+  score = 0;
+  scoreEl.innerText = score;
+  running = true;
+  lastTime = null;
+  // update stage rect in case of resize
+  stageRect = stage.getBoundingClientRect();
+  requestAnimationFrame(update);
+}
+
+// keyboard / click
+document.addEventListener('keydown', e=>{
+  if(e.code === 'Space'){
+    e.preventDefault();
+    jump();
+  } else if(e.key === 'Enter'){
+    if(!running) startGame();
+  }
+});
+stage.addEventListener('click', ()=>{
+  if(!running) startGame();
+  else jump();
+});
+
+// little control UI add
+const ui = document.createElement('div');
+ui.style.position='absolute';
+ui.style.left='14px';
+ui.style.bottom='12px';
+ui.style.zIndex=20;
+ui.style.display='flex';
+ui.style.gap='8px';
+stage.appendChild(ui);
+const startBtn = document.createElement('button');
+startBtn.className='btn';
+startBtn.innerText='Start';
+startBtn.onclick = ()=>{ if(!running) startGame(); };
+ui.appendChild(startBtn);
+
+const autoBtn = document.createElement('button');
+autoBtn.className='btn';
+autoBtn.style.background = '#00b894';
+autoBtn.innerText = 'AutoOn';
+autoBtn.onclick = ()=>{
+  autoReact = !autoReact;
+  autoBtn.innerText = autoReact ? 'AutoOn' : 'AutoOff';
+  autoBtn.style.background = autoReact ? '#00b894' : '#636e72';
+};
+ui.appendChild(autoBtn);
+
+// responsive recalc
+window.addEventListener('resize', ()=> stageRect = stage.getBoundingClientRect());
+
+// little tip text
+const tip = document.createElement('div');
+tip.style.position='absolute';
+tip.style.left='14px';
+tip.style.top='52px';
+tip.style.fontSize='12px';
+tip.style.color='#07304a';
+tip.style.opacity = 0.95;
+tip.innerHTML = 'Tap/click or press <b>Space</b> to jump. Dragon auto-reacts by default.';
+stage.appendChild(tip);
+
 </script>
+</body>
+</html>
