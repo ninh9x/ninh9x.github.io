@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="images/tic-tac-toe-svgrepo-com (2).svg"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Dancing+Script:wght@700&display=swap"
+      rel="stylesheet"
+    />
+    <title>X-O Game</title>
+  </head>
+  <body>
+    <section class="container">
+      <div class="level">
+        <h1 class="welcome">
+          Welcome To <br />
+          Tic Tac Toe
+        </h1>
+        <button id="change__level" class="button">Change Game Mode</button>
+
+        <h2>Game Mode</h2>
+        <div class="modes levels">
+          <button id="one_player" class="level__button active">
+            Single Player
+          </button>
+          <button id="two_players" class="level__button">Two Players</button>
+        </div>
+
+        <h2>Choose Difficulty</h2>
+        <div class="levels">
+          <button id="easy" class="level__button">Easy (3 × 3)</button>
+          <button id="medium" class="level__button">Medium (4 × 4)</button>
+          <button id="hard" class="level__button">Hard (5 × 5)</button>
+        </div>
+      </div>
+
+      <div class="board"></div>
+      <button id="reset" class="button">Reset ↻</button>
+
+      <footer class="footer">
+        <a href="https://mahmoud-mansy-portfolio.netlify.app/ "
+          >© 2/2024 by Mahmoud Mansy</a
+        >
+      </footer>
+    </section>
+
+    <script src="script.js"></script>
+  </body>
+</html>
