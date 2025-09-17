@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Danh sách phim</title>
+<style>
+  body { font-family: sans-serif; background: #f5f5f5; padding: 20px; }
+  .movie { margin-bottom: 20px; padding: 10px; background: #fff; border-radius: 8px; }
+  iframe { width: 300px; height: 170px; }
+</style>
+</head>
+<body>
+
+<h1>Danh sách phim</h1>
+<div id="movies"></div>
+
+<script>
+// Link CSV công khai của Google Sheet
+const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSEk-aqaR88i7iLGsHE0keLBBqvpCPnh-6fB8Kd8rQL658q4P_u-5LDByzazI7KS8PtGMl7neIm95Hn/pub?output=csv';
+
+// Convert CSV sang JSON
+async function fetchMovies() {
+  const res = await fetch(sheetUrl);
+  const text = await res.text();
+  const rows = text.split('\n').map(r => r.split(','));
+  const header = rows.shift();
+  const movies = rows.map(r => {
+    let obj = {};
+    header.forEach((h, i) => obj[h.trim()] = r[i]?.trim());
+    return obj;
+  });
+  return movies;
+}
+
+// Hiển thị phim
+fetchMovies().then(list => {
+  const container = document.getElementById('movies');
+  list.forEach(m => {
+    const div = document.createElement('div');
+    div.className = 'movie';
+    div.innerHTML = `
+      <h3>${m['Tên phim']}</h3>
+      <p>${m['Mô tả'] || ''}</p>
+      <iframe src="${m['Link iframe']}" frameborder="0" allowfullscreen></iframe>
+    `;
+    container.appendChild(div);
+  });
+});
+</script>
+
+</body>
+</html>
