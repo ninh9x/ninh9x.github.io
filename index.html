@@ -2,28 +2,28 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>Danh sách phim</title>
+<title>Danh sach phim</title>
 <style>
-  body { font-family: sans-serif; background: #f5f5f5; padding: 20px; }
+  body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
   .movie { margin-bottom: 20px; padding: 10px; background: #fff; border-radius: 8px; }
   iframe { width: 300px; height: 170px; }
 </style>
 </head>
 <body>
 
-<h1>Danh sách phim</h1>
+<h1>Danh sach phim</h1>
 <div id="movies"></div>
 
 <script>
-// Link CSV công khai của Google Sheet
+// Link CSV public Google Sheet (sau khi publish to web)
 const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSEk-aqaR88i7iLGsHE0keLBBqvpCPnh-6fB8Kd8rQL658q4P_u-5LDByzazI7KS8PtGMl7neIm95Hn/pub?output=csv';
 
-// Convert CSV sang JSON
+// Chuyen CSV sang JSON
 async function fetchMovies() {
   const res = await fetch(sheetUrl);
   const text = await res.text();
   const rows = text.split('\n').map(r => r.split(','));
-  const header = rows.shift();
+  const header = rows.shift();  // lấy dòng header
   const movies = rows.map(r => {
     let obj = {};
     header.forEach((h, i) => obj[h.trim()] = r[i]?.trim());
@@ -32,16 +32,17 @@ async function fetchMovies() {
   return movies;
 }
 
-// Hiển thị phim
+// Hien thi phim
 fetchMovies().then(list => {
   const container = document.getElementById('movies');
   list.forEach(m => {
     const div = document.createElement('div');
     div.className = 'movie';
     div.innerHTML = `
-      <h3>${m['Tên phim']}</h3>
-      <p>${m['Mô tả'] || ''}</p>
-      <iframe src="${m['Link iframe']}" frameborder="0" allowfullscreen></iframe>
+      <h3>${m['TenPhim']}</h3>
+      <p>${m['MoTa'] || ''}</p>
+      <iframe src="${m['LinkIframe']}" frameborder="0" allowfullscreen></iframe>
+      <p><strong>Nam:</strong> ${m['Nam'] || ''}</p>
     `;
     container.appendChild(div);
   });
