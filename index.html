@@ -1,53 +1,28 @@
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-<meta charset="UTF-8">
-<title>Danh sach phim</title>
-<style>
-  body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
-  .movie { margin-bottom: 20px; padding: 10px; background: #fff; border-radius: 8px; }
-  iframe { width: 300px; height: 170px; }
-</style>
-</head>
-<body>
-
-<h1>Danh sach phim</h1>
+<input type="text" id="search" placeholder="Tìm phim hoặc diễn viên">
 <div id="movies"></div>
 
 <script>
-// Link CSV public Google Sheet (sau khi publish to web)
-const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSEk-aqaR88i7iLGsHE0keLBBqvpCPnh-6fB8Kd8rQL658q4P_u-5LDByzazI7KS8PtGMl7neIm95Hn/pub?output=csv';
+const searchInput = document.getElementById('search');
+searchInput.addEventListener('input', () => {
+  const term = searchInput.value.toLowerCase();
+  displayMovies(allMovies.filter(m => 
+    m.TenPhim.toLowerCase().includes(term) || 
+    m.DienVien.toLowerCase().includes(term)
+  ));
+});
 
-// Chuyen CSV sang JSON
-async function fetchMovies() {
-  const res = await fetch(sheetUrl);
-  const text = await res.text();
-  const rows = text.split('\n').map(r => r.split(','));
-  const header = rows.shift();  // lấy dòng header
-  const movies = rows.map(r => {
-    let obj = {};
-    header.forEach((h, i) => obj[h.trim()] = r[i]?.trim());
-    return obj;
-  });
-  return movies;
-}
-
-// Hien thi phim
-fetchMovies().then(list => {
+function displayMovies(list) {
   const container = document.getElementById('movies');
+  container.innerHTML = '';
   list.forEach(m => {
     const div = document.createElement('div');
     div.className = 'movie';
     div.innerHTML = `
-      <h3>${m['TenPhim']}</h3>
-      <p>${m['MoTa'] || ''}</p>
-      <iframe src="${m['LinkIframe']}" frameborder="0" allowfullscreen></iframe>
-      <p><strong>Nam:</strong> ${m['Nam'] || ''}</p>
+      <h3>${m.TenPhim}</h3>
+      <p>Diễn viên: ${m.DienVien}</p>
+      <a href="${m.SlugPhim}.html">Xem phim →</a>
     `;
     container.appendChild(div);
   });
-});
+}
 </script>
-
-</body>
-</html>
