@@ -2,26 +2,29 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>Danh sach phim</title>
+<title>Danh sách phim</title>
 <style>
   body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
   .movie { margin-bottom: 20px; padding: 10px; background: #fff; border-radius: 8px; }
   iframe { width: 300px; height: 170px; }
+  input { margin-bottom: 20px; padding: 5px; width: 300px; }
 </style>
 </head>
 <body>
 
-<h1>Danh sach phim</h1>
+<h1>Danh sách phim</h1>
+<input type="text" id="search" placeholder="Tìm phim hoặc diễn viên...">
 <div id="movies"></div>
 
 <script>
 const sheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vSEk-aqaR88i7iLGsHE0keLBBqvpCPnh-6fB8Kd8rQL658q4P_u-5LDByzazI7KS8PtGMl7neIm95Hn/pub?output=csv';
+let allMovies = [];
 
-// Chuyen CSV sang JSON
+// Chuyển CSV sang JSON
 async function fetchMovies() {
   const res = await fetch(sheetUrl);
   const text = await res.text();
-  const rows = text.split('\n').map(r => r.split(','));
+  const rows = text.trim().split('\n').map(r => r.split(','));
   const header = rows.shift();
   const movies = rows.map(r => {
     let obj = {};
@@ -31,51 +34,38 @@ async function fetchMovies() {
   return movies;
 }
 
-// Tao trang phim rieng
-function createMoviePage(movie) {
-  const html = `
-  <!DOCTYPE html>
-  <html lang="vi">
-  <head>
-    <meta charset="UTF-8">
-    <title>${movie['TenPhim']}</title>
-    <meta name="description" content="${movie['Description'] || ''}">
-    <meta name="keywords" content="${movie['Keywords'] || ''}">
-    <meta property="og:image" content="${movie['Thumbnail'] || ''}">
-    <style>
-      body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
-      iframe { width: 80%; height: 400px; }
-    </style>
-  </head>
-  <body>
-    <h1>${movie['TenPhim']}</h1>
-    <p><strong>The loai:</strong> ${movie['TheLoai']}</p>
-    <p>${movie['MoTa']}</p>
-    <iframe src="${movie['LinkIframe']}" frameborder="0" allowfullscreen></iframe>
-    <p><strong>Nam:</strong> ${movie['Nam']}</p>
-    <a href="index.html">← Ve trang danh sach</a>
-  </body>
-  </html>
-  `;
-  return html;
-}
-
-// Hien thi danh sach va tao link
-fetchMovies().then(list => {
+// Hiển thị danh sách phim
+function displayMovies(list) {
   const container = document.getElementById('movies');
+  container.innerHTML = '';
   list.forEach(m => {
     const div = document.createElement('div');
     div.className = 'movie';
     div.innerHTML = `
       <h3>${m['TenPhim']}</h3>
+      <p>Diễn viên: ${m['DienVien']}</p>
+      <p>Thể loại: ${m['TheLoai']}</p>
       <p>${m['MoTa']}</p>
-      <a href="${m['Slug']}.html">Xem phim →</a>
+      <a href="${m['Slug']}.html" target="_blank">Xem phim →</a>
     `;
     container.appendChild(div);
-
-    // Tao file HTML rieng (chi demo, tren GitHub Pages can pre-generate)
-    console.log(`Trang ${m['Slug']}.html:\n`, createMoviePage(m));
   });
+}
+
+// Tìm kiếm phim / diễn viên
+document.getElementById('search').addEventListener('input', () => {
+  const term = document.getElementById('search').value.toLowerCase();
+  const filtered = allMovies.filter(m => 
+    m['TenPhim'].toLowerCase().includes(term) || 
+    m['DienVien'].toLowerCase().includes(term)
+  );
+  displayMovies(filtered);
+});
+
+// Load dữ liệu
+fetchMovies().then(list => {
+  allMovies = list;
+  displayMovies(list);
 });
 </script>
 
